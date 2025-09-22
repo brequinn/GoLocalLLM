@@ -48,11 +48,11 @@ struct ShimmeringLogoView: View {
         shimmerTask = Task { @MainActor in
             while !Task.isCancelled {
                 shimmerPhase = -1
-                try? await Task.sleep(nanoseconds: 1_500_000_000)
-                withAnimation(.linear(duration: 1.1)) {
+                try? await Task.sleep(nanoseconds: 2_500_000_000)
+                withAnimation(.linear(duration: 1.5)) {
                     shimmerPhase = 1.2
                 }
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                try? await Task.sleep(nanoseconds: 4_500_000_000)
             }
         }
     }

@@ -13,6 +13,7 @@ import AVFoundation        // Media capture and playback utilities used elsewher
 import AVKit               // AVPlayer based UI components
 import PhotosUI            // Photos picker for selecting images and videos
 import SwiftUI             // SwiftUI framework for building the UI
+import UIKit
 
 struct ChatHomeView: View {
     // The view model that owns chat state, generation, media selection, and model management.
@@ -22,6 +23,8 @@ struct ChatHomeView: View {
     @State private var showSettings = false
     @State private var showHistory = false
     @State private var photoPickerItem: PhotosPickerItem?
+    @State private var showAttachmentOptions = false
+    @State private var showCameraPicker = false
 
     // Tracks whether the prompt TextField has focus.
     @FocusState private var promptFocused: Bool
@@ -42,6 +45,7 @@ struct ChatHomeView: View {
                     // Centered shimmer logo that shows until the first message appears.
                     ShimmeringLogoView()
                         .opacity(vm.messages.isEmpty ? 1 : 0)
+                        .allowsHitTesting(false)
                         .animation(.easeInOut(duration: 0.6), value: vm.messages.isEmpty)
 
                     // The scrollable list of messages.
@@ -131,9 +135,7 @@ struct ChatHomeView: View {
             HStack(spacing: 12) {
                 // Add media button, only enabled when the selected model supports vision.
                 Button {
-                    if vm.selectedModel.isVisionModel {
-                        vm.mediaSelection.isShowing = true
-                    }
+                    showAttachmentOptions = true
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 18, weight: .bold))
@@ -175,14 +177,18 @@ struct ChatHomeView: View {
                                     .progressViewStyle(.circular)
                             } else {
                                 Image(systemName: "paperplane.fill")
-                                    .font(.system(size: 17, weight: .semibold))
+                                    .font(.system(size: 16, weight: .semibold))
                             }
                         }
-                        .frame(width: 24, height: 24)
+                        .frame(width: 28, height: 28)
+                        .padding(6)
+                        .background(
+                            Capsule().fill(sendEnabled ? Color(red: 0.25, green: 0.55, blue: 1.0) : Color.primary.opacity(0.08))
+                        )
+                        .foregroundStyle(sendEnabled ? Color.white : Color.primary.opacity(0.4))
                     }
                     .buttonStyle(.plain)
-                    .disabled(!canSend)
-                    .opacity(canSend ? 1 : 0.35)
+                    .disabled(!sendEnabled)
                 }
                 .padding(.vertical, 12)
                 .padding(.horizontal, 18)
@@ -206,6 +212,20 @@ struct ChatHomeView: View {
         )
         // Animate the status pill appearing and disappearing.
         .animation(.easeInOut(duration: 0.25), value: statusMessage)
+        .confirmationDialog("Attach Media", isPresented: $showAttachmentOptions, titleVisibility: .visible) {
+            if vm.selectedModel.isVisionModel {
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    Button("Camera") { showCameraPicker = true }
+                }
+                Button("Photo Library") { vm.mediaSelection.isShowing = true }
+            }
+            Button("Cancel", role: .cancel) { }
+        }
+        .sheet(isPresented: $showCameraPicker) {
+            CameraPicker { image in
+                Task { await vm.attachCapturedImage(image) }
+            }
+        }
     }
 
     // Returns the appropriate status message based on the current model and generation state.
@@ -230,6 +250,10 @@ struct ChatHomeView: View {
         let hasText = !vm.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let hasMedia = !vm.mediaSelection.isEmpty
         return hasText || hasMedia
+    }
+
+    private var sendEnabled: Bool {
+        vm.isModelLoaded && canSend
     }
 
     // Focus the prompt field if not already focused.

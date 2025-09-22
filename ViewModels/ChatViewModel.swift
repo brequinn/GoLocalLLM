@@ -250,6 +250,21 @@ class ChatViewModel {
         return out
     }
 
+    func attachCapturedImage(_ image: UIImage) async {
+        guard let data = image.jpegData(compressionQuality: 0.9) else { return }
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("jpg")
+        do {
+            try data.write(to: url, options: .atomic)
+            mediaSelection.images = [url]
+            mediaSelection.videos = []
+            print("📸 [ChatVM] Captured image added")
+        } catch {
+            print("❌ [ChatVM] Failed to persist captured image: \(error.localizedDescription)")
+        }
+    }
+
     func loadMedia(from item: PhotosPickerItem) async {
         // Handle images and videos; unsupported types trigger a warning.
         do {
