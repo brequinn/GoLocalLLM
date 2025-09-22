@@ -2,7 +2,7 @@
 Run Large Language Models and Vision Models locally on iOS with MLX
 
 <p align="center">
-  <img width="1024" height="1024" alt="ChatGPT Image Sep 22, 2025 at 12_00_38 PM" src="https://github.com/user-attachments/assets/b89eaa8c-d8ce-472d-835e-388b6ebb068e" />
+ <img width="837" height="375" alt="GoLocalLLM" src="https://github.com/user-attachments/assets/a00f4439-3366-43b4-8afb-d1d7b71ff066" />
 </p>
 
 **Run powerful AI models entirely offline on your iPhone.**  
