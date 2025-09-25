@@ -16,17 +16,17 @@ class MLXService {
     static let availableModels: [LMModel] = [
         LMModel(name: "llama3.2:1b", configuration: LLMRegistry.llama3_2_1B_4bit, type: .llm),
         LMModel(name: "qwen2.5:1.5b", configuration: LLMRegistry.qwen2_5_1_5b, type: .llm),
-        LMModel(name: "smolLM:135m", configuration: LLMRegistry.smolLM_135M_4bit, type: .llm),
+       // LMModel(name: "smolLM:135m", configuration: LLMRegistry.smolLM_135M_4bit, type: .llm),
         LMModel(name: "qwen3:0.6b", configuration: LLMRegistry.qwen3_0_6b_4bit, type: .llm),
-        LMModel(name: "qwen3:1.7b", configuration: LLMRegistry.qwen3_1_7b_4bit, type: .llm),
+       // LMModel(name: "qwen3:1.7b", configuration: LLMRegistry.qwen3_1_7b_4bit, type: .llm),
         LMModel(name: "qwen3:4b", configuration: LLMRegistry.qwen3_4b_4bit, type: .llm),
-        LMModel(name: "qwen3:8b", configuration: LLMRegistry.qwen3_8b_4bit, type: .llm),
-        LMModel(name: "qwen2.5VL:3b", configuration: VLMRegistry.qwen2_5VL3BInstruct4Bit, type: .vlm),
+//        LMModel(name: "qwen3:8b", configuration: LLMRegistry.qwen3_8b_4bit, type: .llm),
+//        LMModel(name: "qwen2.5VL:3b", configuration: VLMRegistry.qwen2_5VL3BInstruct4Bit, type: .vlm),
         LMModel(name: "qwen2VL:2b", configuration: VLMRegistry.qwen2VL2BInstruct4Bit, type: .vlm),
-        LMModel(name: "smolVLM", configuration: VLMRegistry.smolvlminstruct4bit, type: .vlm),
-        LMModel(name: "acereason:7B", configuration: LLMRegistry.acereason_7b_4bit, type: .llm),
-        LMModel(name: "gemma3n:E2B", configuration: LLMRegistry.gemma3n_E2B_it_lm_4bit, type: .llm),
-        LMModel(name: "gemma3n:E4B", configuration: LLMRegistry.gemma3n_E4B_it_lm_4bit, type: .llm),
+       // LMModel(name: "smolVLM", configuration: VLMRegistry.smolvlminstruct4bit, type: .vlm),
+       // LMModel(name: "acereason:7B", configuration: LLMRegistry.acereason_7b_4bit, type: .llm),
+       // LMModel(name: "gemma3n:E2B", configuration: LLMRegistry.gemma3n_E2B_it_lm_4bit, type: .llm),
+       // LMModel(name: "gemma3n:E4B", configuration: LLMRegistry.gemma3n_E4B_it_lm_4bit, type: .llm),
     ]
 
     // Cache hydrated model containers to avoid redundant disk loads.
@@ -39,6 +39,10 @@ class MLXService {
     @MainActor
     // Identifier of the model that is presently being fetched.
     private(set) var downloadingModelID: String?
+
+    @MainActor
+    // Tracks the last percentage we logged per model to avoid spamming the console.
+    private var lastLoggedProgress: [String: Int] = [:]
 
     private func load(model: LMModel) async throws -> ModelContainer {
         // Cap GPU cache usage so the MLX runtime keeps memory in check.
@@ -70,6 +74,8 @@ class MLXService {
             if shouldIndicateDownload {
                 self.downloadingModelID = model.id
                 self.modelDownloadProgress = nil
+                self.lastLoggedProgress[model.id] = nil
+                print("⬇️ [MLXService] Starting download for \(model.name)")
             } else if self.downloadingModelID == model.id {
                 self.downloadingModelID = nil
                 self.modelDownloadProgress = nil
@@ -83,6 +89,27 @@ class MLXService {
                 configuration: model.configuration
             ) { progress in
                 Task { @MainActor in
+                    let percent: Int
+                    if progress.totalUnitCount > 0 && progress.totalUnitCount >= progress.completedUnitCount {
+                        let ratio = Double(progress.completedUnitCount) / Double(progress.totalUnitCount)
+                        percent = Int((ratio * 100).rounded())
+                    } else {
+                        percent = -1
+                    }
+
+                    if percent == -1 {
+                        if self.lastLoggedProgress[model.id] != percent {
+                            print("⬇️ [MLXService] \(model.name) progress: awaiting size (completed \(progress.completedUnitCount))")
+                            self.lastLoggedProgress[model.id] = percent
+                        }
+                    } else {
+                        let last = self.lastLoggedProgress[model.id] ?? -2
+                        if percent >= 100 || percent >= last + 5 {
+                            print("⬇️ [MLXService] \(model.name) progress: \(percent)% (\(progress.completedUnitCount)/\(progress.totalUnitCount))")
+                            self.lastLoggedProgress[model.id] = percent
+                        }
+                    }
+
                     self.modelDownloadProgress = progress
                 }
             }
@@ -95,7 +122,9 @@ class MLXService {
                 if self.downloadingModelID == model.id {
                     self.downloadingModelID = nil
                 }
+                self.lastLoggedProgress[model.id] = nil
                 DownloadedModelsStore.shared.markDownloaded(model.id)
+                print("✅ [MLXService] Finished download for \(model.name)")
             }
 
             return container
@@ -107,7 +136,9 @@ class MLXService {
                     self.downloadingModelID = nil
                 }
                 self.modelDownloadProgress = nil
+                self.lastLoggedProgress[model.id] = nil
             }
+            print("❌ [MLXService] Download failed for \(model.name): \(error.localizedDescription)")
             throw error
         }
     }
