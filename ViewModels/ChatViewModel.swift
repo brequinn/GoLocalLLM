@@ -15,8 +15,10 @@ import UniformTypeIdentifiers
 class ChatViewModel {
     // MLX integration layer used for loading models and generating responses.
     private let mlxService: MLXService
+    private let historyStore = ConversationHistoryStore.shared
     // Model currently active in the UI.
     var selectedModel: LMModel
+    private var activeConversationID: UUID?
 
     // Persists the user's last picked model between launches.
     private let lastModelKey = "lastSelectedModelID"
@@ -33,7 +35,19 @@ class ChatViewModel {
         }) {
             self.selectedModel = downloaded
         } else {
-            self.selectedModel = MLXService.availableModels.first!
+            self.selectedModel = MLXService.defaultModel
+        }
+
+        if DownloadedModelsStore.shared.isDownloaded(selectedModel.id) {
+            isModelLoaded = true
+        }
+
+        if let storedID = historyStore.activeConversationID,
+           let record = historyStore.conversation(for: storedID) {
+            self.activeConversationID = storedID
+            self.messages = record.messages.map { $0.asMessage() }
+        } else {
+            self.activeConversationID = historyStore.beginNewConversation()
         }
     }
 
@@ -55,6 +69,10 @@ class ChatViewModel {
 
     // Queue of prompts typed while a previous request is still running.
     private var sendQueue: [Message] = []
+    private let maxQueueSize = 10
+
+    // Track preload task for cancellation
+    private var preloadTask: Task<Void, Never>?
 
     var tokensPerSecond: Double { generateCompletionInfo?.tokensPerSecond ?? 0 }
     var modelDownloadProgress: Progress? { mlxService.modelDownloadProgress }
@@ -69,6 +87,7 @@ class ChatViewModel {
     func setModel(_ model: LMModel) {
         // Update selection and remember the choice.
         selectedModel = model
+        isModelLoaded = DownloadedModelsStore.shared.isDownloaded(model.id)
         UserDefaults.standard.set(model.id, forKey: lastModelKey)
     }
 
@@ -80,30 +99,91 @@ class ChatViewModel {
         }) {
             selectedModel = downloaded
             UserDefaults.standard.set(downloaded.id, forKey: lastModelKey)
+        } else {
+            let fallback = MLXService.defaultModel
+            selectedModel = fallback
+            UserDefaults.standard.set(fallback.id, forKey: lastModelKey)
         }
     }
 
-    // Download heavy models in the background so switching feels instant.
-    func preload(model: LMModel) async {
-        do {
-            if model.id == selectedModel.id {
-                isModelLoaded = false
+    // Explicitly download a model (called when user taps "Download" button)
+    func downloadModel(_ model: LMModel) async {
+        // Cancel any existing preload task
+        preloadTask?.cancel()
+
+        preloadTask = Task {
+            do {
+                if model.id == selectedModel.id {
+                    isModelLoaded = false
+                }
+                print("⬇️ [ChatVM] Starting explicit download for: \(model.name)")
+                try await mlxService.preload(model: model)
+                if model.id == selectedModel.id {
+                    isModelLoaded = true
+                }
+                print("✅ [ChatVM] Downloaded and loaded model: \(model.name)")
+            } catch is CancellationError {
+                print("🚫 [ChatVM] Download cancelled for: \(model.name)")
+            } catch {
+                if model.id == selectedModel.id {
+                    isModelLoaded = false
+                }
+                errorMessage = error.localizedDescription
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                print("❌ [ChatVM] Download failed: \(error.localizedDescription)")
             }
-            try await mlxService.preload(model: model)
-            if model.id == selectedModel.id {
-                isModelLoaded = true
-            }
-            print("📦 [ChatVM] Preloaded model: \(model.name)")
-        } catch {
-            if model.id == selectedModel.id {
-                isModelLoaded = false
-            }
-            print("❌ [ChatVM] Preload failed: \(error.localizedDescription)")
         }
+
+        await preloadTask?.value
+    }
+
+    // Load models in the background so switching feels instant (only for downloaded models).
+    func preload(model: LMModel) async {
+        // Only preload models that are already downloaded
+        guard DownloadedModelsStore.shared.isDownloaded(model.id) else {
+            print("⏭️ [ChatVM] Skipping preload for \(model.name) - not downloaded")
+            if model.id == selectedModel.id {
+                isModelLoaded = false
+            }
+            return
+        }
+
+        // Cancel any existing preload task to avoid concurrent loads
+        preloadTask?.cancel()
+
+        preloadTask = Task {
+            do {
+                if model.id == selectedModel.id {
+                    isModelLoaded = false
+                }
+                try await mlxService.preload(model: model)
+                if model.id == selectedModel.id {
+                    isModelLoaded = true
+                }
+                print("📦 [ChatVM] Preloaded model: \(model.name)")
+            } catch is CancellationError {
+                print("🚫 [ChatVM] Preload cancelled for: \(model.name)")
+            } catch {
+                if model.id == selectedModel.id {
+                    isModelLoaded = false
+                }
+                errorMessage = error.localizedDescription
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                print("❌ [ChatVM] Preload failed: \(error.localizedDescription)")
+            }
+        }
+
+        await preloadTask?.value
     }
 
     // Called when the app launches or the picker chooses a new model.
     func preloadSelected() async {
+        // Only preload if the model is already downloaded to avoid auto-downloading
+        guard DownloadedModelsStore.shared.isDownloaded(selectedModel.id) else {
+            print("⏭️ [ChatVM] Skipping preload for \(selectedModel.name) - not downloaded yet")
+            isModelLoaded = false
+            return
+        }
         await preload(model: selectedModel)
     }
 
@@ -115,10 +195,17 @@ class ChatViewModel {
                 refreshDefaultFromDownloads()
                 await preloadSelected()
             }
-            print("🗑️ [ChatVM] Removed download: \(model.name)")
+            print("🗑️ [ChatVM] Removed local copy: \(model.name)")
         } catch {
             errorMessage = error.localizedDescription
             print("❌ [ChatVM] Remove failed: \(error.localizedDescription)")
+        }
+    }
+
+    func cancelDownload(for model: LMModel) {
+        mlxService.cancelDownload(for: model)
+        if model.id == selectedModel.id {
+            isModelLoaded = false
         }
     }
 
@@ -140,6 +227,15 @@ class ChatViewModel {
         // Queue the prompt so it runs immediately after the current turn.
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty && mediaSelection.isEmpty { return }
+
+        // Prevent unbounded queue growth
+        guard sendQueue.count < maxQueueSize else {
+            errorMessage = "Queue full. Please wait for current responses to complete."
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            print("⚠️ [ChatVM] Queue full, rejecting new prompt")
+            return
+        }
+
         let userMsg = Message.user(trimmed, images: mediaSelection.images, videos: mediaSelection.videos)
         sendQueue.append(userMsg)
         clear(.prompt)
@@ -151,6 +247,12 @@ class ChatViewModel {
     private func generate(with userMsg: Message) async {
         // If a run is in progress, just queue and return
         if isGenerating {
+            guard sendQueue.count < maxQueueSize else {
+                errorMessage = "Queue full. Please wait for current responses to complete."
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                print("⚠️ [ChatVM] Queue full, rejecting prompt")
+                return
+            }
             sendQueue.append(userMsg)
             print("⏳ [ChatVM] Busy, queued prompt, queue size: \(sendQueue.count)")
             return
@@ -163,9 +265,11 @@ class ChatViewModel {
         // Append user message to the transcript so it shows immediately.
         messages.append(userMsg)
         print("✉️ [ChatVM] User -> \"\(userMsg.content)\"")
+        persistConversationIfNeeded()
 
         // Placeholder assistant line used for streaming tokens in-place.
-        let assistant = Message.assistant("")
+        let placeholderStatus: Message.Status = userMsg.images.isEmpty ? .thinking : .analyzingImage
+        let assistant = Message.assistant("", status: placeholderStatus)
         messages.append(assistant)
 
         // History passed to the model excludes the empty streaming placeholder.
@@ -175,6 +279,8 @@ class ChatViewModel {
         // Cancel any orphaned tasks to avoid double streaming.
         if let existing = generateTask {
             existing.cancel()
+            // Await cancellation to ensure cleanup completes
+            _ = await existing.result
             generateTask = nil
         }
 
@@ -192,13 +298,21 @@ class ChatViewModel {
                     switch generation {
                     case .chunk(let chunk):
                         if let last = self.messages.last {
-                            let visible = self.filterThinking(from: chunk)
-                            if !visible.isEmpty {
+                            let parsed = self.extractVisibleAndReasoning(from: chunk)
+                            if let reasoning = parsed.reasoning, !reasoning.isEmpty {
+                                if last.reasoning == nil {
+                                    last.reasoning = reasoning
+                                } else {
+                                    last.reasoning? += reasoning
+                                }
+                            }
+
+                            if !parsed.visible.isEmpty {
                                 if !self.didFireResponseHaptic {
                                     self.didFireResponseHaptic = true
                                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 }
-                                last.content += visible
+                                last.content += parsed.visible
                             }
                         }
                         print("📝 [ChatVM] Chunk: \(chunk.replacingOccurrences(of: "\n", with: "\\n"))")
@@ -211,13 +325,16 @@ class ChatViewModel {
                     }
                 }
                 print("✅ [ChatVM] Generation complete")
+                self.persistConversationIfNeeded()
             } catch is CancellationError {
                 print("🚫 [ChatVM] Generation cancelled")
                 if let last = self.messages.last { last.content += "\n[Cancelled]" }
+                self.persistConversationIfNeeded()
             } catch {
                 self.errorMessage = error.localizedDescription
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
                 print("❌ [ChatVM] Generation failed: \(error.localizedDescription)")
+                self.persistConversationIfNeeded()
             }
         }
     }
@@ -230,24 +347,29 @@ class ChatViewModel {
         await generate(with: next)
     }
 
-    // Filter out <think> ... </think> meta sections the model may emit.
-    private func filterThinking(from chunk: String) -> String {
-        var out = ""
+    // Split streaming chunks into visible text and hidden reasoning emitted inside <think> tags.
+    private func extractVisibleAndReasoning(from chunk: String) -> (visible: String, reasoning: String?) {
+        var visible = ""
+        var reasoning = ""
         var i = chunk.startIndex
         while i < chunk.endIndex {
             if !droppingThought, let start = chunk[i...].range(of: "<think>") {
-                out += chunk[i..<start.lowerBound]
+                visible += chunk[i..<start.lowerBound]
                 i = start.upperBound
                 droppingThought = true
             } else if droppingThought, let end = chunk[i...].range(of: "</think>") {
                 i = end.upperBound
                 droppingThought = false
             } else {
-                if !droppingThought { out.append(chunk[i]) }
+                if droppingThought {
+                    reasoning.append(chunk[i])
+                } else {
+                    visible.append(chunk[i])
+                }
                 i = chunk.index(after: i)
             }
         }
-        return out
+        return (visible, reasoning.isEmpty ? nil : reasoning)
     }
 
     func attachCapturedImage(_ image: UIImage) async {
@@ -301,9 +423,32 @@ class ChatViewModel {
     func clear(_ options: ClearOption) {
         // Reset specific slices of state depending on the flags provided.
         if options.contains(.prompt) { prompt = ""; mediaSelection = .init(); print("🧹 [ChatVM] Cleared prompt and media") }
-        if options.contains(.chat) { messages = []; generateTask?.cancel(); print("🧹 [ChatVM] Cleared chat history") }
+        if options.contains(.chat) {
+            if messages.isEmpty == false { persistConversationIfNeeded() }
+            messages = []
+            generateTask?.cancel()
+            activeConversationID = historyStore.beginNewConversation()
+            print("🧹 [ChatVM] Cleared chat history")
+        }
         if options.contains(.meta) { generateCompletionInfo = nil; print("🧹 [ChatVM] Cleared metadata") }
         errorMessage = nil
+    }
+
+    private func persistConversationIfNeeded() {
+        guard messages.isEmpty == false else { return }
+        let id = ensureActiveConversationID()
+        historyStore.updateConversation(id: id, messages: messages)
+    }
+
+    private func ensureActiveConversationID() -> UUID {
+        if let id = activeConversationID { return id }
+        if let storedID = historyStore.activeConversationID {
+            activeConversationID = storedID
+            return storedID
+        }
+        let newID = historyStore.beginNewConversation()
+        activeConversationID = newID
+        return newID
     }
 }
 

@@ -91,7 +91,7 @@ struct ChatHomeView: View {
                     promptFocused = true
                 }
             }
-            // If the selected model changes, preload it.
+            // If the selected model changes, preload it (only if already downloaded).
             .onChange(of: vm.selectedModel) { _, _ in
                 Task { await vm.preloadSelected() }
             }
@@ -113,22 +113,15 @@ struct ChatHomeView: View {
     // MARK: Input Bar
     // This is the composer area. It shows a transient status pill, the media add button, the prompt field, and the send button.
     private var inputBar: some View {
-        VStack(spacing: 12) {
-            // Optional status label that communicates download or warmup state.
-            if let status = statusMessage {
-                // Transient pill communicates download or inference state.
-                Text(status)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
-                    .background(
-                        LinearGradient(colors: [Color.black.opacity(0.92), Color.black.opacity(0.7)],
-                                       startPoint: .topLeading,
-                                       endPoint: .bottomTrailing),
-                        in: Capsule()
-                    )
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+        VStack(spacing: 14) {
+            // Enhanced status indicator with progress and better visuals
+            if let statusType = enhancedStatusType {
+                EnhancedStatusView(
+                    type: statusType,
+                    progress: statusProgress
+                )
+                .onAppear
+                .transition(.scale.combined(with: .opacity))
             }
 
             // Main composer row with add media, prompt text field, and send button.
@@ -183,9 +176,22 @@ struct ChatHomeView: View {
                         .frame(width: 28, height: 28)
                         .padding(6)
                         .background(
-                            Capsule().fill(sendEnabled ? Color(red: 0.25, green: 0.55, blue: 1.0) : Color.primary.opacity(0.08))
+                            Capsule().fill(
+                                sendEnabled ?
+                                LinearGradient(
+                                    colors: [Color(red: 0.2, green: 0.5, blue: 0.95), Color(red: 0.3, green: 0.6, blue: 1.0)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ) :
+                                LinearGradient(
+                                    colors: [Color.primary.opacity(0.08), Color.primary.opacity(0.08)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
                         )
                         .foregroundStyle(sendEnabled ? Color.white : Color.primary.opacity(0.4))
+                        .shadow(color: sendEnabled ? Color(red: 0.2, green: 0.5, blue: 0.95).opacity(0.3) : Color.clear, radius: 6, y: 3)
                     }
                     .buttonStyle(.plain)
                     .disabled(!sendEnabled)
@@ -210,8 +216,8 @@ struct ChatHomeView: View {
             Color(.systemBackground)
                 .overlay(Divider(), alignment: .top)
         )
-        // Animate the status pill appearing and disappearing.
-        .animation(.easeInOut(duration: 0.25), value: statusMessage)
+        // Animate the status indicator appearing and disappearing.
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: enhancedStatusType != nil)
         .confirmationDialog("Attach Media", isPresented: $showAttachmentOptions, titleVisibility: .visible) {
             if vm.selectedModel.isVisionModel {
                 if UIImagePickerController.isSourceTypeAvailable(.camera) {
@@ -228,18 +234,22 @@ struct ChatHomeView: View {
         }
     }
 
-    // Returns the appropriate status message based on the current model and generation state.
-    private var statusMessage: String? {
-        // Prefer download progress when the selected model is still fetching.
+    // Returns enhanced status type for better visual feedback
+    private var enhancedStatusType: EnhancedStatusView.StatusType? {
         if let downloading = vm.downloadingModelID, downloading == vm.selectedModel.id {
-            if let progress = vm.modelDownloadProgress?.fractionCompleted, progress > 0 {
-                let percent = Int(progress * 100)
-                return "Downloading… \(percent)%"
-            }
-            return "Preparing download…"
+            let modelName = modelTitleMain(vm.selectedModel.name)
+            return .downloading(modelName)
         }
         if vm.isModelLoaded == false {
-            return "Warming up…"
+            let modelName = modelTitleMain(vm.selectedModel.name)
+            return .loading(modelName)
+        }
+        return nil
+    }
+
+    private var statusProgress: Double? {
+        if let downloading = vm.downloadingModelID, downloading == vm.selectedModel.id {
+            return vm.modelDownloadProgress?.fractionCompleted
         }
         return nil
     }

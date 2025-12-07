@@ -9,6 +9,8 @@ struct GoLocalLLMApp: App {
     @State private var service = MLXService()
     // Top-level observable view model driving all screen state.
     @State private var vm: ChatViewModel
+    // Track whether splash screen animation has completed
+    @State private var showSplash = true
 
     init() {
         // Build the service once, then keep a single ChatViewModel for the app lifecycle.
@@ -19,8 +21,22 @@ struct GoLocalLLMApp: App {
 
     var body: some Scene {
         WindowGroup {
-            // Launch directly into the custom home experience.
-            ChatHomeView(viewModel: vm)
+            ZStack {
+                // Main chat interface
+                ChatHomeView(viewModel: vm)
+                    .opacity(showSplash ? 0 : 1)
+
+                // Animated splash screen overlay
+                if showSplash {
+                    SplashScreenView {
+                        withAnimation(.easeOut(duration: 0.5)) {
+                            showSplash = false
+                        }
+                    }
+                    .transition(.opacity)
+                    .zIndex(1)
+                }
+            }
         }
     }
 }
