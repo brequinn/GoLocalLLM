@@ -17,7 +17,7 @@ class ChatViewModel {
     private let mlxService: MLXService
     private let historyStore = ConversationHistoryStore.shared
     // Model currently active in the UI.
-    var selectedModel: LMModel
+    var selectedModel: LMModel = MLXService.defaultModel
     private var activeConversationID: UUID?
 
     // Persists the user's last picked model between launches.
@@ -25,6 +25,14 @@ class ChatViewModel {
 
     init(mlxService: MLXService) {
         self.mlxService = mlxService
+        self.downloadingModelID = mlxService.downloadingModelID
+        self.modelDownloadProgress = mlxService.modelDownloadProgress
+
+        mlxService.downloadStateDidChange = { @MainActor [weak self] id, progress in
+            guard let self else { return }
+            self.downloadingModelID = id
+            self.modelDownloadProgress = progress
+        }
 
         // Try to restore the last-used model, otherwise pick a sensible downloaded/default option.
         if let saved = UserDefaults.standard.string(forKey: lastModelKey),
@@ -57,6 +65,8 @@ class ChatViewModel {
     var mediaSelection = MediaSelection()
     var isGenerating = false
     var isModelLoaded = false
+    var downloadingModelID: String?
+    var modelDownloadProgress: Progress?
 
     // Handles streaming tasks and completion metadata.
     private var generateTask: Task<Void, any Error>?
@@ -73,10 +83,10 @@ class ChatViewModel {
 
     // Track preload task for cancellation
     private var preloadTask: Task<Void, Never>?
+    // Remember if we've already kicked off the initial auto-download so we don't loop
+    private var didAutoStartFirstDownload = false
 
     var tokensPerSecond: Double { generateCompletionInfo?.tokensPerSecond ?? 0 }
-    var modelDownloadProgress: Progress? { mlxService.modelDownloadProgress }
-    var downloadingModelID: String? { mlxService.downloadingModelID }
     // Entire catalog exposed for menus.
     var availableModels: [LMModel] { MLXService.availableModels }
     // Filtered subset for quick switching.
@@ -180,8 +190,14 @@ class ChatViewModel {
     func preloadSelected() async {
         // Only preload if the model is already downloaded to avoid auto-downloading
         guard DownloadedModelsStore.shared.isDownloaded(selectedModel.id) else {
-            print("⏭️ [ChatVM] Skipping preload for \(selectedModel.name) - not downloaded yet")
-            isModelLoaded = false
+            if DownloadedModelsStore.shared.ids.isEmpty && didAutoStartFirstDownload == false {
+                didAutoStartFirstDownload = true
+                print("⬇️ [ChatVM] First launch auto-download for \(selectedModel.name)")
+                await downloadModel(selectedModel)
+            } else {
+                print("⏭️ [ChatVM] Skipping preload for \(selectedModel.name) - not downloaded yet")
+                isModelLoaded = false
+            }
             return
         }
         await preload(model: selectedModel)

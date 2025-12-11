@@ -147,12 +147,20 @@ class MLXService {
     private var loadTasks: [String: Task<ModelContainer, Error>] = [:]
 
     @MainActor
+    // Callback so interested parties (e.g. ChatViewModel) can mirror download state.
+    var downloadStateDidChange: (@MainActor (String?, Progress?) -> Void)?
+
+    @MainActor
     // Download progress exposed to the UI for the currently active task.
-    private(set) var modelDownloadProgress: Progress?
+    private(set) var modelDownloadProgress: Progress? {
+        didSet { notifyDownloadStateChanged() }
+    }
 
     @MainActor
     // Identifier of the model that is presently being fetched.
-    private(set) var downloadingModelID: String?
+    private(set) var downloadingModelID: String? {
+        didSet { notifyDownloadStateChanged() }
+    }
 
     @MainActor
     // Track if user manually cancelled download
@@ -165,6 +173,11 @@ class MLXService {
     @MainActor
     // Tracks the last completed unit count logged for each model to debug stalls.
     private var lastLoggedUnitCount: [String: Int64] = [:]
+
+    @MainActor
+    private func notifyDownloadStateChanged() {
+        downloadStateDidChange?(downloadingModelID, modelDownloadProgress)
+    }
 
     private func load(model: LMModel) async throws -> ModelContainer {
         // Clear cancelled flag on new load attempt

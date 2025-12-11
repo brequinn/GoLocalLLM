@@ -45,7 +45,7 @@ private extension SettingsView {
     }
 
     var intelligenceSection: some View {
-        Section("Intelligence") {
+        Section("Models") {
             NavigationLink {
                 ManageModelsView()
                     .environment(vm)

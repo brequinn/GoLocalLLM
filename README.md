@@ -20,9 +20,12 @@ Built with [Apple MLX](https://github.com/ml-explore/mlx). No cloud, no servers,
 ---
 
 ## How It Works
-1. Select and download a model (LLM or VLM).  
-2. Run inference locally using MLX.  
-3. Interact through a clean SwiftUI interface.  
+1. On first launch the app auto-downloads the tiny **Qwen 3:0.6b** model so you can start chatting immediately.  
+2. Select and download any additional models (LLM or VLM).  
+3. Run inference locally using MLX.  
+4. Interact through a clean SwiftUI interface.  
+
+> Tip: After the initial Qwen 3 download completes (it’s only ~0.6B parameters), the UI switches from “Loading Qwen 3” to ready, and future startups reuse the cached weights instantly.
 
 ---
 
