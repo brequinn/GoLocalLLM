@@ -29,10 +29,26 @@ struct SettingsView: View {
                 }
             }
         }
+        .alert("Something went wrong", isPresented: errorAlertBinding) {
+            Button("OK", role: .cancel) { vm.errorMessage = nil }
+        } message: {
+            Text(vm.errorMessage ?? "Unknown error")
+        }
     }
 }
 
 private extension SettingsView {
+    var errorAlertBinding: Binding<Bool> {
+        Binding(
+            get: { vm.errorMessage != nil },
+            set: { newValue in
+                if newValue == false {
+                    vm.errorMessage = nil
+                }
+            }
+        )
+    }
+
     var assistantSection: some View {
         Section("Assistant") {
             NavigationLink {
@@ -45,14 +61,16 @@ private extension SettingsView {
     }
 
     var intelligenceSection: some View {
-        Section("Models") {
+        let currentModel = vm.selectedModel
+
+        return Section("Models") {
             NavigationLink {
                 ManageModelsView()
                     .environment(vm)
             } label: {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        Text("Meta Llama 3.2 - 1B")
+                        Text(currentModel.displayName)
                             .font(.headline)
                         Spacer()
                         Label("Local", systemImage: "lock.fill")
@@ -60,7 +78,7 @@ private extension SettingsView {
                             .labelStyle(.titleAndIcon)
                             .foregroundStyle(.secondary)
                     }
-                    Text("Very small and fast chat model. Runs well on most mobile devices")
+                    Text(currentModel.summary)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

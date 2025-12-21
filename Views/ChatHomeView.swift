@@ -107,6 +107,11 @@ struct ChatHomeView: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 inputBar
             }
+            .alert("Something went wrong", isPresented: errorAlertBinding) {
+                Button("OK", role: .cancel) { vm.errorMessage = nil }
+            } message: {
+                Text(vm.errorMessage ?? "Unknown error")
+            }
         }
     }
 
@@ -383,6 +388,19 @@ struct ChatHomeView: View {
         if let idx = full.firstIndex(of: ":") { return String(full[full.index(after: idx)...]) }
         if let space = full.firstIndex(of: " ") { return String(full[full.index(after: space)...]) }
         return ""
+    }
+}
+
+private extension ChatHomeView {
+    var errorAlertBinding: Binding<Bool> {
+        Binding(
+            get: { showSettings == false && vm.errorMessage != nil },
+            set: { newValue in
+                if newValue == false {
+                    vm.errorMessage = nil
+                }
+            }
+        )
     }
 }
 

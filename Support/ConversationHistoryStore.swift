@@ -69,6 +69,7 @@ final class ConversationHistoryStore: ObservableObject {
 
     private var storage: StoragePayload
     private let storeURL: URL
+    private var persistTask: Task<Void, Never>?
 
     private init() {
         // Use Application Support directory (persistent), with Documents directory as fallback
@@ -171,19 +172,26 @@ final class ConversationHistoryStore: ObservableObject {
     }
 
     private func persist() {
-        do {
-            let data = try JSONEncoder().encode(storage)
-            let directory = storeURL.deletingLastPathComponent()
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let payload = storage
+        let url = storeURL
+        let previousTask = persistTask
 
-            // Write to temporary file first for atomic operation
-            let tempURL = directory.appendingPathComponent("history.tmp")
-            try data.write(to: tempURL, options: .atomic)
+        persistTask = Task.detached(priority: .utility) {
+            if let previousTask {
+                _ = await previousTask.value
+            }
+            do {
+                let data = try JSONEncoder().encode(payload)
+                let directory = url.deletingLastPathComponent()
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
-            // Replace the original file atomically
-            _ = try FileManager.default.replaceItemAt(storeURL, withItemAt: tempURL)
-        } catch {
-            print("❌ [HistoryStore] Persist failed: \(error.localizedDescription)")
+                // Write to a temporary file first for atomic replacement.
+                let tempURL = directory.appendingPathComponent("history.tmp")
+                try data.write(to: tempURL, options: .atomic)
+                _ = try FileManager.default.replaceItemAt(url, withItemAt: tempURL)
+            } catch {
+                print("❌ [HistoryStore] Persist failed: \(error.localizedDescription)")
+            }
         }
     }
 

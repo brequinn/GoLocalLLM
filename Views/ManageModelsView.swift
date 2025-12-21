@@ -12,6 +12,7 @@ struct ManageModelsView: View {
 
     @State private var storageByID: [String: Int64] = [:]
     @State private var totalStorage: Int64 = 0
+    @State private var pendingDownloadID: String?
 
     private var storageLimit: Int64 { MLXService.storageLimitBytes }
     private var storageLimitString: String? {
@@ -142,7 +143,7 @@ struct ManageModelsView: View {
     @ViewBuilder
     private func modelCard(for model: LMModel) -> some View {
         let isDownloaded = downloads.isDownloaded(model.id)
-        let isDownloading = vm.downloadingModelID == model.id
+        let isDownloading = vm.downloadingModelID == model.id || pendingDownloadID == model.id
         let storageCapped = isAtStorageLimit && !isDownloaded
         let isActive = vm.selectedModel.id == model.id
         let progress = isDownloading ? vm.modelDownloadProgress : nil
@@ -388,9 +389,13 @@ struct ManageModelsView: View {
             HStack(spacing: 12) {
                 Button("Download") {
                     guard storageCapped == false else { return }
+                    pendingDownloadID = model.id
                     vm.setModel(model)
                     // Explicitly download when user taps Download button
-                    Task { await vm.downloadModel(model) }
+                    Task {
+                        await vm.downloadModel(model)
+                        await MainActor.run { pendingDownloadID = nil }
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(storageCapped)

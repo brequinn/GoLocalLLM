@@ -252,6 +252,7 @@ class MLXService {
                 configuration: model.configuration
             ) { progress in
                 Task { @MainActor in
+                    #if DEBUG
                     let percent: Int
                     if progress.totalUnitCount > 0 && progress.totalUnitCount >= progress.completedUnitCount {
                         let ratio = Double(progress.completedUnitCount) / Double(progress.totalUnitCount)
@@ -286,6 +287,7 @@ class MLXService {
                             self.lastLoggedProgress[model.id] = percent
                         }
                     }
+                    #endif
 
                     self.modelDownloadProgress = progress
                 }
@@ -472,14 +474,15 @@ class MLXService {
     }
 
     private func currentStorageUsage() async -> Int64 {
-        await MainActor.run {
+        let ids = await MainActor.run { Array(DownloadedModelsStore.shared.ids) }
+        return await Task.detached(priority: .utility) {
             let store = DownloadedModelsStore.shared
-            return store.ids.reduce(into: Int64(0)) { total, id in
+            return ids.reduce(into: Int64(0)) { total, id in
                 guard let model = Self.availableModels.first(where: { $0.id == id }),
                       let size = store.sizeOnDisk(for: model) else { return }
                 total += size
             }
-        }
+        }.value
     }
 }
 

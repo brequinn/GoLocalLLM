@@ -331,7 +331,9 @@ class ChatViewModel {
                                 last.content += parsed.visible
                             }
                         }
+                        #if DEBUG
                         print("📝 [ChatVM] Chunk: \(chunk.replacingOccurrences(of: "\n", with: "\\n"))")
+                        #endif
                     case .info(let info):
                         self.generateCompletionInfo = info
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
