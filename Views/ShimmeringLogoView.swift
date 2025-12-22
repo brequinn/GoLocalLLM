@@ -17,7 +17,10 @@ struct ShimmeringLogoView: View {
     var body: some View {
         GeometryReader { proxy in
             let width = proxy.size.width
+            let minDimension = min(proxy.size.width, proxy.size.height)
             let dynamicSize = min(max(width * 0.16, 24), 32)
+            let glowSize = min(max(minDimension * 0.6, 180), 360)
+            let glowRadius = glowSize * 0.5
 
             ZStack {
                 // Subtle glow background
@@ -30,10 +33,10 @@ struct ShimmeringLogoView: View {
                             ],
                             center: .center,
                             startRadius: 0,
-                            endRadius: 150
+                            endRadius: glowRadius
                         )
                     )
-                    .frame(width: 300, height: 300)
+                    .frame(width: glowSize, height: glowSize)
                     .scaleEffect(pulseScale)
 
                 VStack(spacing: 12) {

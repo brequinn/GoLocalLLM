@@ -110,6 +110,22 @@ class MLXService {
             icon: .init(representation: .emoji("🖼️")),
             badges: [.init(kind: .vision, label: "Vision")]
         ),
+        LMModel(
+            name: "gemma3:4b (Vision)",
+            configuration: VLMRegistry.gemma3_4B_qat_4bit,
+            type: .vlm,
+            summary: "Gemma 3 vision model for higher-quality image understanding while staying manageable on-device.",
+            icon: .init(representation: .emoji("💠")),
+            badges: [.init(kind: .vision, label: "Vision")]
+        ),
+        LMModel(
+            name: "lfm2VL:3b",
+            configuration: VLMRegistry.lfm2VL_3B_4bit,
+            type: .vlm,
+            summary: "LiquidAI LFM2 vision model for balanced image understanding and chat on-device.",
+            icon: .init(representation: .emoji("💧")),
+            badges: [.init(kind: .vision, label: "Vision")]
+        ),
        // LMModel(name: "smolVLM", configuration: VLMRegistry.smolvlminstruct4bit, type: .vlm),
        // LMModel(name: "acereason:7B", configuration: LLMRegistry.acereason_7b_4bit, type: .llm),
        // LMModel(name: "gemma3n:E2B", configuration: LLMRegistry.gemma3n_E2B_it_lm_4bit, type: .llm),
@@ -507,5 +523,12 @@ private extension LLMRegistry {
     static let deepseek_r1_distill_qwen_1_5b_4bit = ModelConfiguration(
         id: "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-4bit",
         defaultPrompt: "Explain your reasoning as you solve: Why is 9.11 less than 9.9?"
+    )
+}
+
+private extension VLMRegistry {
+    static let lfm2VL_3B_4bit = ModelConfiguration(
+        id: "mlx-community/LFM2-VL-3B-4bit",
+        defaultPrompt: "Describe the image in English"
     )
 }

@@ -15,66 +15,71 @@ struct SplashScreenView: View {
     let onComplete: () -> Void
 
     var body: some View {
-        ZStack {
-            // Animated gradient mesh background
-            AnimatedGradientMesh(rotation: gradientRotation)
-                .ignoresSafeArea()
+        GeometryReader { proxy in
+            let minDimension = min(proxy.size.width, proxy.size.height)
+            let logoSize = min(max(minDimension * 0.12, 36), 56)
+            let taglineSize = min(max(minDimension * 0.04, 12), 18)
 
-            // Particle effect layer
-            ParticleField()
-                .opacity(particlesOpacity)
-                .ignoresSafeArea()
+            ZStack {
+                // Animated gradient mesh background
+                AnimatedGradientMesh(rotation: gradientRotation, size: proxy.size)
+                    .ignoresSafeArea()
 
-            // Logo and tagline
-            VStack(spacing: 24) {
-                // Main logo with glow effect
-                ZStack {
-                    // Glow layers
-                    Text("GoLocalLLM")
-                        .font(.system(size: 48, weight: .bold, design: .rounded))
-                        .tracking(2)
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.4, green: 0.7, blue: 1.0),
-                                    Color(red: 0.2, green: 0.5, blue: 0.95)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                // Particle effect layer
+                ParticleField()
+                    .opacity(particlesOpacity)
+                    .ignoresSafeArea()
+
+                // Logo and tagline
+                VStack(spacing: 24) {
+                    // Main logo with glow effect
+                    ZStack {
+                        // Glow layers
+                        Text("GoLocalLLM")
+                            .font(.system(size: logoSize, weight: .bold, design: .rounded))
+                            .tracking(2)
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.4, green: 0.7, blue: 1.0),
+                                        Color(red: 0.2, green: 0.5, blue: 0.95)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
                             )
-                        )
-                        .blur(radius: 20)
-                        .opacity(0.6)
+                            .blur(radius: 20)
+                            .opacity(0.6)
 
-                    // Main logo
-                    Text("GoLocalLLM")
-                        .font(.system(size: 48, weight: .bold, design: .rounded))
-                        .tracking(2)
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [
-                                    Color.white,
-                                    Color(red: 0.9, green: 0.95, blue: 1.0)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
+                        // Main logo
+                        Text("GoLocalLLM")
+                            .font(.system(size: logoSize, weight: .bold, design: .rounded))
+                            .tracking(2)
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white,
+                                        Color(red: 0.9, green: 0.95, blue: 1.0)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
                             )
-                        )
-                        .shadow(color: Color(red: 0.3, green: 0.6, blue: 1.0).opacity(0.5), radius: 20, y: 10)
-                }
-                .scaleEffect(logoScale)
-                .opacity(logoOpacity)
-
-                // Tagline
-                Text("Local AI • Private • Powerful")
-                    .font(.system(size: 16, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.7))
+                            .shadow(color: Color(red: 0.3, green: 0.6, blue: 1.0).opacity(0.5), radius: 20, y: 10)
+                    }
+                    .scaleEffect(logoScale)
                     .opacity(logoOpacity)
+
+                    // Tagline
+                    Text("Local AI • Private • Powerful")
+                        .font(.system(size: taglineSize, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .opacity(logoOpacity)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .onAppear {
-            startAnimation()
-        }
+        .onAppear { startAnimation() }
     }
 
     private func startAnimation() {
@@ -114,8 +119,15 @@ struct SplashScreenView: View {
 
 private struct AnimatedGradientMesh: View {
     let rotation: Double
+    let size: CGSize
 
     var body: some View {
+        let minDimension = min(size.width, size.height)
+        let overlayStart = minDimension * 0.2
+        let overlayEnd = minDimension * 1.1
+        let glowSmall = minDimension * 0.75
+        let glowLarge = minDimension * 1.0
+
         ZStack {
             // Base gradient
             LinearGradient(
@@ -136,8 +148,8 @@ private struct AnimatedGradientMesh: View {
                     Color.clear
                 ],
                 center: .center,
-                startRadius: 100,
-                endRadius: 600
+                startRadius: overlayStart,
+                endRadius: overlayEnd
             )
             .rotationEffect(.degrees(rotation))
             .scaleEffect(1.5)
@@ -152,11 +164,11 @@ private struct AnimatedGradientMesh: View {
                         ],
                         center: .center,
                         startRadius: 0,
-                        endRadius: 200
+                        endRadius: glowSmall * 0.5
                     )
                 )
-                .frame(width: 400, height: 400)
-                .offset(x: -100, y: -200)
+                .frame(width: glowSmall, height: glowSmall)
+                .offset(x: -minDimension * 0.25, y: -minDimension * 0.45)
                 .blur(radius: 40)
 
             Circle()
@@ -168,11 +180,11 @@ private struct AnimatedGradientMesh: View {
                         ],
                         center: .center,
                         startRadius: 0,
-                        endRadius: 250
+                        endRadius: glowLarge * 0.5
                     )
                 )
-                .frame(width: 500, height: 500)
-                .offset(x: 150, y: 250)
+                .frame(width: glowLarge, height: glowLarge)
+                .offset(x: minDimension * 0.3, y: minDimension * 0.5)
                 .blur(radius: 50)
         }
     }

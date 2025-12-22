@@ -9,6 +9,7 @@ import SwiftUI
 struct MessageView: View {
     @Bindable var message: Message
     @Bindable private var settings = AppSettings.shared
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
         switch message.role {
@@ -21,16 +22,16 @@ struct MessageView: View {
                             img.resizable().aspectRatio(contentMode: .fill)
                         } placeholder: {
                             ProgressView()
-                                .frame(maxWidth: 250, maxHeight: 200)
+                                .frame(maxWidth: mediaMaxWidth, maxHeight: mediaMaxHeight)
                         }
-                        .frame(maxWidth: 250, maxHeight: 200)
+                        .frame(maxWidth: mediaMaxWidth, maxHeight: mediaMaxHeight)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .shadow(color: Color.black.opacity(0.1), radius: 8, y: 4)
                     }
 
                     if let firstVideo = message.videos.first {
                         VideoPlayer(player: AVPlayer(url: firstVideo))
-                            .frame(width: 250, height: 340)
+                            .frame(width: mediaMaxWidth, height: mediaVideoHeight)
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                             .shadow(color: Color.black.opacity(0.1), radius: 8, y: 4)
                     }
@@ -114,6 +115,18 @@ struct MessageView: View {
         default:
             return "Thinking"
         }
+    }
+
+    private var mediaMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? 360 : 250
+    }
+
+    private var mediaMaxHeight: CGFloat {
+        horizontalSizeClass == .regular ? 260 : 200
+    }
+
+    private var mediaVideoHeight: CGFloat {
+        horizontalSizeClass == .regular ? 480 : 340
     }
 }
 

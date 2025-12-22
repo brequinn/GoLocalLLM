@@ -13,6 +13,7 @@ struct ManageModelsView: View {
     @State private var storageByID: [String: Int64] = [:]
     @State private var totalStorage: Int64 = 0
     @State private var pendingDownloadID: String?
+    @State private var modelFilter: ModelFilter = .all
 
     private var storageLimit: Int64 { MLXService.storageLimitBytes }
     private var storageLimitString: String? {
@@ -118,7 +119,14 @@ struct ManageModelsView: View {
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundStyle(.secondary)
-            ForEach(MLXService.availableModels, id: \.id) { model in
+            Picker("Model filter", selection: $modelFilter) {
+                ForEach(ModelFilter.allCases) { filter in
+                    Text(filter.label).tag(filter)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityLabel("Filter models")
+            ForEach(filteredModels, id: \.id) { model in
                 modelCard(for: model)
             }
         }
@@ -431,6 +439,28 @@ struct ManageModelsView: View {
         await MainActor.run {
             storageByID = perModel
             totalStorage = total
+        }
+    }
+
+    private var filteredModels: [LMModel] {
+        switch modelFilter {
+        case .all:
+            return MLXService.availableModels
+        case .vision:
+            return MLXService.availableModels.filter { $0.isVisionModel }
+        }
+    }
+}
+
+private enum ModelFilter: String, CaseIterable, Identifiable {
+    case all
+    case vision
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .all: return "All"
+        case .vision: return "Vision"
         }
     }
 }

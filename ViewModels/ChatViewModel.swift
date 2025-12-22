@@ -414,6 +414,10 @@ class ChatViewModel {
             systemMessages.append(Message.system(personalityPrompt))
         }
 
+        systemMessages.append(
+            Message.system("Respond in English only.")
+        )
+
         if AppSettings.shared.showModelReasoning == false {
             systemMessages.append(
                 Message.system("Do not reveal your chain-of-thought or internal reasoning. Reply with the final answer only.")

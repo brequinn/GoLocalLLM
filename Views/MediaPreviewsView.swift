@@ -6,6 +6,7 @@ import SwiftUI
 
 struct MediaPreviewsView: View {
     let mediaSelection: MediaSelection
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
         ScrollView(.horizontal) {
@@ -14,14 +15,16 @@ struct MediaPreviewsView: View {
                     MediaPreviewView(
                         mediaURL: imageURL,
                         type: .image,
-                        onRemove: { mediaSelection.images.removeAll { $0 == imageURL } }
+                        onRemove: { mediaSelection.images.removeAll { $0 == imageURL } },
+                        size: previewSize
                     )
                 }
                 ForEach(mediaSelection.videos, id: \.self) { videoURL in
                     MediaPreviewView(
                         mediaURL: videoURL,
                         type: .video,
-                        onRemove: { mediaSelection.videos.removeAll { $0 == videoURL } }
+                        onRemove: { mediaSelection.videos.removeAll { $0 == videoURL } },
+                        size: previewSize
                     )
                 }
             }
@@ -29,12 +32,20 @@ struct MediaPreviewsView: View {
         }
         .padding(.top)
     }
+
+    private var previewSize: CGSize {
+        if horizontalSizeClass == .regular {
+            return CGSize(width: 220, height: 140)
+        }
+        return CGSize(width: 150, height: 100)
+    }
 }
 
 struct MediaPreviewView: View {
     let mediaURL: URL
     let type: MediaPreviewType
     let onRemove: () -> Void
+    let size: CGSize
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -44,14 +55,14 @@ struct MediaPreviewView: View {
                     image
                         .resizable()
                         .scaledToFit()
-                        .frame(height: 100)
+                        .frame(width: size.width, height: size.height)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 } placeholder: {
-                    ProgressView().frame(width: 150, height: 100)
+                    ProgressView().frame(width: size.width, height: size.height)
                 }
             case .video:
                 VideoPlayer(player: AVPlayer(url: mediaURL))
-                    .frame(width: 150, height: 100)
+                    .frame(width: size.width, height: size.height)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             }
             RemoveButton(action: onRemove)
@@ -77,4 +88,3 @@ extension MediaPreviewView {
 }
 
 #Preview("Remove Button") { RemoveButton {} }
-
