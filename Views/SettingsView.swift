@@ -50,7 +50,7 @@ private extension SettingsView {
     }
 
     var assistantSection: some View {
-        Section("Assistant") {
+        Section("Personality") {
             NavigationLink {
                 AssistantsView()
             } label: {
@@ -98,30 +98,6 @@ private extension SettingsView {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Temperature")
-                    Spacer()
-                    Text(String(format: "%.1f", settings.temperature))
-                        .foregroundStyle(.secondary)
-                }
-                Slider(value: $settings.temperature, in: 0...1, step: 0.05)
-                Text("Controls the creativity of responses; lower values make answers more focused, while higher values increase randomness.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Context window: \(settings.contextWindow.formatted())")
-                    Spacer()
-                }
-                Slider(value: contextWindowBinding, in: 2_048...16_384, step: 256)
-                Text("Maximum number of tokens the model can process at once. Higher values use more memory but allow longer conversations.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
             Toggle(isOn: $settings.showModelReasoning) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Show model reasoning")
@@ -150,14 +126,6 @@ private extension SettingsView {
         }
     }
 
-    var contextWindowBinding: Binding<Double> {
-        Binding {
-            Double(settings.contextWindow)
-        } set: { newValue in
-            let clamped = min(16_384, max(2_048, Int(newValue.rounded())))
-            settings.contextWindow = clamped
-        }
-    }
 }
 
 private struct SettingsRow: View {

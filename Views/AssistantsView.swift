@@ -9,7 +9,7 @@ struct AssistantsView: View {
                 assistantRow(for: assistant)
             }
         }
-        .navigationTitle("Assistants")
+        .navigationTitle("Personalities")
     }
 
     private func assistantRow(for assistant: AssistantProfile) -> some View {

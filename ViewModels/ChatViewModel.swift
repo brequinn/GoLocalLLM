@@ -76,6 +76,7 @@ class ChatViewModel {
     // Helpers for filtering tool thoughts and gating haptics.
     private var droppingThought = false
     private var didFireResponseHaptic = false
+    private var didUserCancelGeneration = false
 
     // Queue of prompts typed while a previous request is still running.
     private var sendQueue: [Message] = []
@@ -277,6 +278,7 @@ class ChatViewModel {
         isGenerating = true
         droppingThought = false
         didFireResponseHaptic = false
+        didUserCancelGeneration = false
 
         // Append user message to the transcript so it shows immediately.
         messages.append(userMsg)
@@ -289,7 +291,7 @@ class ChatViewModel {
         messages.append(assistant)
 
         // History passed to the model excludes the empty streaming placeholder.
-        let messagesForModel = Array(messages.dropLast())
+        let messagesForModel = prepareMessagesForModel(from: messages)
         print("📚 [ChatVM] Sending \(messagesForModel.count) messages as context to \(selectedModel.name)")
 
         // Cancel any orphaned tasks to avoid double streaming.
@@ -346,7 +348,11 @@ class ChatViewModel {
                 self.persistConversationIfNeeded()
             } catch is CancellationError {
                 print("🚫 [ChatVM] Generation cancelled")
-                if let last = self.messages.last { last.content += "\n[Cancelled]" }
+                if self.didUserCancelGeneration {
+                    self.didUserCancelGeneration = false
+                } else if let last = self.messages.last {
+                    last.content += "\n[Cancelled]"
+                }
                 self.persistConversationIfNeeded()
             } catch {
                 self.errorMessage = error.localizedDescription
@@ -355,6 +361,14 @@ class ChatViewModel {
                 self.persistConversationIfNeeded()
             }
         }
+    }
+
+    func cancelGeneration() {
+        guard isGenerating else { return }
+        didUserCancelGeneration = true
+        sendQueue.removeAll()
+        generateTask?.cancel()
+        print("🛑 [ChatVM] Stop requested by user")
     }
 
     private func processQueueIfNeeded() async {
@@ -388,6 +402,26 @@ class ChatViewModel {
             }
         }
         return (visible, reasoning.isEmpty ? nil : reasoning)
+    }
+
+    private func prepareMessagesForModel(from messages: [Message]) -> [Message] {
+        let trimmed = Array(messages.dropLast())
+        var systemMessages: [Message] = []
+
+        let personalityPrompt = AppSettings.shared.selectedAssistant.systemPrompt
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if personalityPrompt.isEmpty == false {
+            systemMessages.append(Message.system(personalityPrompt))
+        }
+
+        if AppSettings.shared.showModelReasoning == false {
+            systemMessages.append(
+                Message.system("Do not reveal your chain-of-thought or internal reasoning. Reply with the final answer only.")
+            )
+        }
+
+        guard systemMessages.isEmpty == false else { return trimmed }
+        return systemMessages + trimmed
     }
 
     func attachCapturedImage(_ image: UIImage) async {

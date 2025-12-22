@@ -73,6 +73,13 @@ class MLXService {
             summary: "LiquidAI's compact 700M LFM2 assistant for fun wordplay, creative riffs, and casual chatting.",
             icon: .init(representation: .emoji("💧"))
         ),
+        LMModel(
+            name: "lfm2:1.2b",
+            configuration: LLMRegistry.lfm2_1_2b_4bit,
+            type: .llm,
+            summary: "LiquidAI's 1.2B LFM2 model for higher-quality general chat while staying lightweight on-device.",
+            icon: .init(representation: .emoji("💧"))
+        ),
        // LMModel(name: "qwen3:1.7b", configuration: LLMRegistry.qwen3_1_7b_4bit, type: .llm),
         LMModel(
             name: "qwen3:4b",
@@ -490,6 +497,11 @@ private extension LLMRegistry {
     static let lfm2_700m_4bit = ModelConfiguration(
         id: "mlx-community/LiquidAI-LFM2-0.7B-Instruct-4bit",
         defaultPrompt: "Give me a creativity exercise I can finish in a minute."
+    )
+
+    static let lfm2_1_2b_4bit = ModelConfiguration(
+        id: "mlx-community/LFM2-1.2B-4bit",
+        defaultPrompt: "Why is the sky blue?"
     )
 
     static let deepseek_r1_distill_qwen_1_5b_4bit = ModelConfiguration(

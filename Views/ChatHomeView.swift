@@ -166,13 +166,16 @@ struct ChatHomeView: View {
 
                     // Send button that either enqueues or generates based on the current state.
                     Button {
-                        Task { await trySend() }
+                        if vm.isGenerating {
+                            vm.cancelGeneration()
+                        } else {
+                            Task { await trySend() }
+                        }
                     } label: {
                         Group {
                             if vm.isGenerating {
-                                // Circular progress view matches the design's spinner.
-                                ProgressView()
-                                    .progressViewStyle(.circular)
+                                Image(systemName: "stop.fill")
+                                    .font(.system(size: 14, weight: .bold))
                             } else {
                                 Image(systemName: "paperplane.fill")
                                     .font(.system(size: 16, weight: .semibold))
@@ -182,6 +185,12 @@ struct ChatHomeView: View {
                         .padding(6)
                         .background(
                             Capsule().fill(
+                                vm.isGenerating ?
+                                LinearGradient(
+                                    colors: [Color(red: 0.88, green: 0.25, blue: 0.25), Color(red: 0.98, green: 0.35, blue: 0.3)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ) :
                                 sendEnabled ?
                                 LinearGradient(
                                     colors: [Color(red: 0.2, green: 0.5, blue: 0.95), Color(red: 0.3, green: 0.6, blue: 1.0)],
@@ -195,11 +204,18 @@ struct ChatHomeView: View {
                                 )
                             )
                         )
-                        .foregroundStyle(sendEnabled ? Color.white : Color.primary.opacity(0.4))
-                        .shadow(color: sendEnabled ? Color(red: 0.2, green: 0.5, blue: 0.95).opacity(0.3) : Color.clear, radius: 6, y: 3)
+                        .foregroundStyle(vm.isGenerating ? Color.white : (sendEnabled ? Color.white : Color.primary.opacity(0.4)))
+                        .shadow(
+                            color: vm.isGenerating
+                                ? Color(red: 0.88, green: 0.25, blue: 0.25).opacity(0.25)
+                                : (sendEnabled ? Color(red: 0.2, green: 0.5, blue: 0.95).opacity(0.3) : Color.clear),
+                            radius: 6,
+                            y: 3
+                        )
                     }
                     .buttonStyle(.plain)
-                    .disabled(!sendEnabled)
+                    .accessibilityLabel(vm.isGenerating ? "Stop generation" : "Send message")
+                    .disabled(!(vm.isGenerating || sendEnabled))
                 }
                 .padding(.vertical, 12)
                 .padding(.horizontal, 18)
@@ -284,7 +300,7 @@ struct ChatHomeView: View {
     // If idle, generate immediately from the current prompt.
     private func trySend() async {
         if vm.isGenerating {
-            await vm.enqueueCurrentPrompt()
+            vm.cancelGeneration()
         } else {
             await vm.generateFromCurrentPrompt()
         }

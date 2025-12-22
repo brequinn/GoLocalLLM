@@ -9,7 +9,7 @@ struct PersonalizationView: View {
 
     var body: some View {
         Form {
-            Section("Assistant") {
+            Section("Personality") {
                 Toggle("Show helpful suggestions", isOn: $showSuggestions)
                 Toggle("Prefer safer answers", isOn: $safeAnswers)
                 Toggle("Show quick actions", isOn: $quickActions)
