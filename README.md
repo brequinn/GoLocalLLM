@@ -36,3 +36,7 @@ Clone the repository and open the project in Xcode:
 git clone https://github.com/yourusername/GoLocalLLM.git
 cd GoLocalLLM
 open GoLocalLLM.xcodeproj
+```
+
+## License
+MIT License. See `LICENSE`.
