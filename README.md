@@ -33,7 +33,7 @@ Built with [Apple MLX](https://github.com/ml-explore/mlx). No cloud, no servers,
 Clone the repository and open the project in Xcode:
 
 ```bash
-git clone https://github.com/yourusername/GoLocalLLM.git
+git clone https://github.com/brequinn/GoLocalLLM.git
 cd GoLocalLLM
 open GoLocalLLM.xcodeproj
 ```

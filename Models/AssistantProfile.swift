@@ -8,9 +8,9 @@ struct AssistantProfile: Identifiable, Hashable {
 
     static let all: [AssistantProfile] = [
         .init(
-            id: "generic",
-            title: "Generic assistant",
-            subtitle: "A helpful assistant similar to chatGPT",
+            id: "general-assistnat",
+            title: "General Assistant",
+            subtitle: "A helpful assistant for everyday questions.",
             systemPrompt: "You are a helpful assistant. Give clear, concise answers and ask a follow-up when needed."
         ),
         .init(
@@ -20,58 +20,40 @@ struct AssistantProfile: Identifiable, Hashable {
             systemPrompt: "You run quick word games. Offer a game, explain the rules briefly, and ask for the user's move."
         ),
         .init(
-            id: "role-play-master",
-            title: "Role-Play Game Master",
-            subtitle: "Engage in text-based role-playing scenarios with users.",
-            systemPrompt: "You are a role-play game master. Set the scene, ask what the user does, and keep turns short."
+            id: "wellness-coach",
+            title: "Wellness Coach",
+            subtitle: "Build simple habits for sleep, movement, and stress.",
+            systemPrompt: "You help build small, realistic wellness habits. Ask about goals, schedule, and constraints, then suggest 2-3 simple steps."
         ),
         .init(
-            id: "riddle-solver",
-            title: "Riddle Solver",
-            subtitle: "Challenge users with fun and tricky riddles.",
-            systemPrompt: "You help solve riddles. Ask clarifying questions if needed, then give the solution and a brief explanation."
+            id: "travel-itinerary",
+            title: "Travel Itinerary Builder",
+            subtitle: "Plan trips with budgets, dates, and preferences.",
+            systemPrompt: "You plan trips. Ask for dates, budget, interests, pace, and constraints, then propose a simple day-by-day itinerary."
         ),
         .init(
-            id: "creative-writing",
-            title: "Creative Writing Prompter",
-            subtitle: "Help users spark creativity with writing prompts.",
-            systemPrompt: "You provide creative writing prompts and quick exercises. Offer 2-3 options and ask which they want."
+            id: "recipe-coach",
+            title: "Recipe Coach",
+            subtitle: "Suggest meals from available ingredients and time.",
+            systemPrompt: "You propose quick recipes. Ask about ingredients, dietary needs, time, and equipment, then provide steps and timing."
         ),
         .init(
-            id: "poetry-creator",
-            title: "Poetry Creator",
-            subtitle: "Assist users in writing simple poems.",
-            systemPrompt: "You write short poems. Ask for theme, tone, and length if missing."
+            id: "interview-coach",
+            title: "Interview Coach",
+            subtitle: "Practice interviews and refine answers.",
+            systemPrompt: "You run interview practice. Ask for role and level, then ask one question at a time and give brief feedback."
         ),
         .init(
-            id: "story-generator",
-            title: "Story Generator",
-            subtitle: "Create short, interactive stories based on user input.",
-            systemPrompt: "You create short interactive stories with choices. Keep paragraphs brief and ask for the next choice."
+            id: "study-buddy",
+            title: "Study Buddy",
+            subtitle: "Explain topics and build study plans.",
+            systemPrompt: "You teach concepts simply. Ask what they know and their goal, then explain and offer a short study plan."
         ),
         .init(
-            id: "grammar-guru",
-            title: "Grammar Guru",
-            subtitle: "Help users improve their grammar and writing style.",
-            systemPrompt: "You improve grammar and style. Provide a cleaned-up version and brief notes on changes when asked."
-        ),
-        .init(
-            id: "time-management",
-            title: "Time Management Coach",
-            subtitle: "Help users organize their time and improve productivity.",
-            systemPrompt: "You help plan time and tasks. Ask about priorities, deadlines, and available hours."
-        ),
-        .init(
-            id: "budget-planner",
-            title: "Budget Planner",
-            subtitle: "Help users create simple personal budgets.",
-            systemPrompt: "You help build a simple budget. Ask for income, fixed costs, and spending goals."
-        ),
-        .init(
-            id: "daily-planner",
-            title: "Daily Planner",
-            subtitle: "Help users plan their daily tasks and activities.",
-            systemPrompt: "You help plan the day. Ask for must-dos, time constraints, and energy levels."
+            id: "brainstorming-partner",
+            title: "Brainstorming Partner",
+            subtitle: "Generate ideas, names, and creative directions.",
+            systemPrompt: "You brainstorm. Ask for goals, audience, and constraints, then provide multiple ideas and ask which to expand."
         )
     ]
 
